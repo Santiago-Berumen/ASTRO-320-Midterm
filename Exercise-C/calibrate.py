@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
 """
-Astro 320 - calibrate star images for photometry (Santi's version)
-==================================================================
+Astro 320 - calibrate star images for photometry
 calibrated = (raw - pedestal - bias - dark), hot pixels/trails repaired, / normalised flat, + offset
-
-Usage:
-    python calibrate.py                         # calibrates INPUT_FOLDER below
-    python calibrate.py "/path/to/other/folder" # calibrates any other folder
 
 Every FITS file in the folder is saved as <name>_calibrated.fit in <folder>/<folder>_calibrated,
 together with calibration_log.csv, hot_pixels.csv and calibration_summary.txt.
-
-pip install numpy scipy astropy
 """
 import csv
 import re
@@ -22,36 +15,32 @@ import numpy as np
 from astropy.io import fits
 from scipy import ndimage
 
-# =============================================================================
-# SETTINGS (Santi's files and numbers)
-# =============================================================================
+
 BASE = Path("/Users/santiago/Documents/Astronomy/Astro 320")
 
-# Each of these can be a FITS file OR a folder holding exactly one FITS file
-INPUT_FOLDER = BASE / "Exercise D" / "partD(NGC6811)" / "I"   # science frames (one filter per run)
-MASTER_FLAT  = BASE / "Exercise D" / "masterflatI"            # flat in the SAME filter as INPUT_FOLDER
-MASTER_BIAS  = BASE / "Exercise D" / "masterbias"             # Exercise A master bias, binning 1 (rebinned here)
-DARK_FRAMES_FOLDER = None   # no matching 2x2 darks were taken; dark comes from the Exercise A dark law
 
-GAIN, GAIN_ERR = 1.201, 0.003     # e-/DN (Exercise B, dome flats PTC)
-RN_DN, RN_ERR = 9.637, 0.014      # read noise [DN] (Exercise A)
+INPUT_FOLDER = BASE / "Exercise D" / "partD(NGC6811)" / "I"   
+MASTER_FLAT  = BASE / "Exercise D" / "masterflatI"          
+MASTER_BIAS  = BASE / "Exercise D" / "masterbias"             
+DARK_FRAMES_FOLDER = None  
 
-# Dark law from Exercise A:  I(T) = I0 exp(-TB / T)  [DN / unbinned pixel / s]
-#   TB = A/k from the ln(I) vs 1/T fit (slope -11,778 +/- 212 K, A = 1.01 eV)
-#   I0 chosen so that I(6.97 C) = 0.4349 e-/px/s / 1.201 = 0.362 DN/px/s
+GAIN, GAIN_ERR = 1.201, 0.003    
+RN_DN, RN_ERR = 9.637, 0.014    
+
+
 TB, TB_ERR = 11778.0, 212.0
 I0 = 6.596e17
-I0_ERR = 0.006 * I0               # ~0.6 %, matches the uncertainty of the 7 C dark rate
-DARK_7C, DARK_7C_ERR = 0.4358, 0.0025   # static dark rate at 7 C [e-/px/s], unbinned pixel
-DARK_MODE = "law"                 # "law" | "static" | "none"
+I0_ERR = 0.006 * I0         
+DARK_7C, DARK_7C_ERR = 0.4358, 0.0025  
+DARK_MODE = "law"                
 
 SUBTRACT_PEDESTAL = True
-BIAS_SMOOTH = 31                  # median filter [binned px] on the rebinned master bias
-REF_BIAS_LEVEL_RAW = 1026.9       # median of the Exercise A master bias
-FLAT_MIN = 0.1                    # normalised flat below this -> NaN
+BIAS_SMOOTH = 31                  
+REF_BIAS_LEVEL_RAW = 1026.9      
+FLAT_MIN = 0.1                  
 
-# orientation of the calibration frames relative to the raw star images
-FLAT_ORIENT = "auto"              # "auto" | "as is" | "flip up-down" | "flip left-right" | "rotate 180"
+
+FLAT_ORIENT = "auto"            
 BIAS_ORIENT = "auto"
 
 # hot pixels / trails
@@ -60,18 +49,16 @@ HOT_SIGMA = 8.0
 SHARP_FRACTION = 0.3
 HOT_FRACTION = 0.5
 TRAIL_SIGMA = 1.5
-TRAIL_AXIS = "auto"               # "auto" | 0 | 1
+TRAIL_AXIS = "auto"               
 
-ADD_OFFSET = "auto"               # "auto" or a number [DN]
+ADD_OFFSET = "auto"              
 
 TEMP_KEYS = ["CCD-TEMP", "CCDTEMP", "TEMPERAT"]
 EXPTIME_KEYS = ["EXPTIME", "EXPOSURE"]
-ADC_DN, FULL_WELL_DN = 65535.0, 44000.0   # full-well turnover from the Exercise B PTC
+ADC_DN, FULL_WELL_DN = 65535.0, 44000.0   
 
 
-# =============================================================================
-# HELPERS
-# =============================================================================
+
 def natural_key(p):
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", p.name)]
 
@@ -146,9 +133,6 @@ def load_master_darks(folder):
     return {t: np.median(np.stack(v), axis=0) for t, v in groups.items()}
 
 
-# =============================================================================
-# ORIENTATION OF THE CALIBRATION FRAMES
-# =============================================================================
 ORIENTATIONS = {"as is": lambda a: a, "flip up-down": np.flipud,
                 "flip left-right": np.fliplr, "rotate 180": lambda a: a[::-1, ::-1]}
 
@@ -176,9 +160,6 @@ def orient(name, frame, reference, choice, margin=0.02, min_corr=0.0):
     return ORIENTATIONS[best](frame)
 
 
-# =============================================================================
-# HOT PIXELS AND TRAILS
-# =============================================================================
 def hot_candidates(pre):
     resid = pre - ndimage.median_filter(pre, size=7, mode="nearest")
     sig = robust_sigma(resid)
@@ -234,9 +215,6 @@ def repair_flat(flat, hot, axis):
     return f if axis == 0 else f.T
 
 
-# =============================================================================
-# CALIBRATION
-# =============================================================================
 def calibrate_folder(folder):
     folder = Path(folder)
     files = find_fits(folder)
@@ -275,7 +253,7 @@ def calibrate_folder(folder):
     if bias_oriented is not bias_binned and FLAT_ORIENT == "auto":
         flat = orient("master flat", flat_raw, raw_med - bias_oriented, FLAT_ORIENT)
 
-    # ---------------- pass 1: pre-calibrate, find hot-pixel candidates ----------------
+
     bias_cache, meta, pres = {}, [], []
     hot_count = np.zeros(flat.shape, int)
     for path in files:
@@ -312,7 +290,7 @@ def calibrate_folder(folder):
                          how=how, raw_max=raw.max(), raw_med=np.median(raw), sig=sig))
         print(f"  pre-calibrated {path.name:26s} t={t} T={T}  {how}")
 
-    # ---------------- hot pixels found in most images ----------------
+
     n = len(files)
     hot = hot_count >= max(1, int(np.ceil(HOT_FRACTION * n))) if FIX_HOT_PIXELS else np.zeros(flat.shape, bool)
     hys, hxs = np.nonzero(hot)
@@ -332,7 +310,7 @@ def calibrate_folder(folder):
         for y, x in zip(hys, hxs):
             w.writerow([x, y, x + 1, y + 1, hot_count[y, x]])
 
-    # ---------------- pass 2: repair, flat divide, offset ----------------
+    
     cals = []
     for pre, m in zip(pres, meta):
         fixed = repair(pre.astype(np.float64), hot, m["sig"], axis) if hot.any() else pre.astype(np.float64)
