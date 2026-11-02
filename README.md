@@ -10,16 +10,11 @@ Most of the image handling (calibration, alignment, aperture photometry, plot pr
 pip install numpy scipy astropy matplotlib pandas
 ```
 
-> All scripts have a SETTINGS block at the top with file paths from my computer (`/Users/santiago/...`). Change those to point at your own data before running.
+> Scripts that read FITS files or tables have a SETTINGS block at the top with file paths from my computer (`/Users/santiago/...`). Change those to point at your own data before running. The plotting scripts for Exercise C have the measurements typed in and run as is.
 
 ---
 
 ## Exercise A: Read Noise and Dark Current
-
-### Read noise scripts (provided by the course)
-Two Python scripts handed out with the lab manual. Both measure the read noise from 20 bias frames by comparing each pixel only with itself across all frames, so fixed patterns in the bias cancel out.
-- **Full-frame script:** read noise over the whole chip → 9.637 DN
-- **Region script:** read noise in a 110 × 110 px defect-free region → 9.636 DN
 
 ### `dark_current.py`
 Measures the dark current from the dark frames and finds the activation energy.
@@ -34,22 +29,14 @@ Measures the dark current from the dark frames and finds the activation energy.
 
 ## Exercise B: Flat Fields and Gain
 
-### Photon transfer curve / gain script
-Builds the photon transfer curve (PTC) from the dome flats.
-- Splits each flat into 5 × 5 pixel regions and computes the mean and standard deviation of each region.
-- Throws out regions with unusually high scatter (cosmic rays, hot pixels) and averages the rest into one signal *S* and one noise σ<sub>S</sub> per image. The varying-exposure flats are done per quadrant to get more points.
-- Fits σ<sub>S</sub>² = *S*/*g* + 2σ<sub>RN</sub>² below 40,000 DN to get the gain: *g* = 1.201 ± 0.003 e⁻/DN.
-- Shows where the CCD reaches full well (~44,000 DN), where the noise turns over.
-- **Outputs:** `ptc_option2_full.pdf` (full range), `ptc_option2_zoom.pdf` (gain region)
-
-The 1-D illumination profiles of the dome and sky flats were made with AstroImageJ's *Plot Profile*.
+No scripts here. The gain (*g* = 1.201 ± 0.003 e⁻/DN) came from a photon transfer curve of the dome flats. That script was not saved. The 1-D illumination profiles of the dome and sky flats were made with AstroImageJ's *Plot Profile*.
 
 ---
 
 ## Exercise C: Image Quality and Photometric Uncertainty
 
 ### `calibrate.py`
-My full calibration pipeline, used for Exercises C and D (my local copy is named `flatfield.py`):
+My full calibration pipeline, used for Exercises C and D:
 
 **calibrated = (raw − bias − dark) / flat**
 
@@ -61,21 +48,19 @@ My full calibration pipeline, used for Exercises C and D (my local copy is named
 - **Inputs:** each calibration input can be a FITS file or a folder holding one.
 - **Outputs:** `<name>_calibrated.fit` files plus `calibration_log.csv`, `hot_pixels.csv` and `calibration_summary.txt`
 
-### `fwhm_focus.py`
-Plots FWHM vs. focus position for *o* Aql (17,000 → 14,000 µm), with error bars from repeated measurements at a fixed focus (±0.27 px). Adds a second y-axis in arcseconds using the plate scale from Exercise E (1.239″/px).
+### `focus_curve.py`
+Plots FWHM vs. focus position for *o* Aquilae, from 17,000 to 14,000 µm in 500 µm steps, measured with AstroImageJ's *Plot Profile*.
+- Error bars of ±0.27 px come from the scatter between repeated images at the same focus.
+- Adds a second y-axis in arcseconds using the plate scale from Exercise E (1.239″/px).
+- The points form a V shape, with the sharpest image at 15,000 µm (7.9 px ≈ 9.7″).
 - **Output:** `fwhm_vs_focus` (PDF + PNG)
 
-### `exC_plots.py`
-The rest of the Exercise C plots, from AstroImageJ Multi-Aperture measurements (r = 15/25/60 px).
-- **Repeatability:** count rate of one star in ten 10 s frames (two bad frames dropped). Computes the percent deviation of each frame, the mean, the frame-to-frame scatter (0.68%) and the photon-noise error (0.28%), which shows the measurements are *not* photon-limited.
-- **FWHM vs. exposure time** and **count rate vs. exposure time** for TYC 4004-1801-1 (5–180 s). The star is saturated in every frame, so its FWHM grows and its count rate drops with longer exposures.
+### `photometry_tests.py`
+Makes three plots from AstroImageJ Multi-Aperture photometry (r = 15/25/60 px).
+- **Repeatability:** count rate of one unsaturated star in ten 10 s exposures, with the wind-smeared frame 7 dropped. Computes each frame's percent deviation from the mean, the frame-to-frame scatter and the photon-noise error. The scatter is larger than the photon noise, so the measurements are not photon-limited.
+- **FWHM vs. exposure time:** exposure series of the TYC 4004-1801-1 field (5–180 s), comparing a faint star that never saturates with a brighter one that saturates from 60 s on. The unsaturated star's FWHM stays constant, while the saturated star's grows.
+- **Count rate vs. exposure time:** same two stars. The unsaturated star's count rate stays constant, as expected for a linear detector, while the saturated star's drops.
 - **Outputs:** `repeatability`, `fwhm_vs_exptime`, `countrate_vs_exptime` (PDF + PNG)
-
-### `saturated_profile.py` *(not used in the final report)*
-Plots the AstroImageJ profile through TYC 4004-1801-1 in the 180 s image and measures the flat, saturated top (~48,200 DN across 7 px).
-
-### `organize_exC.py` *(not used, I organized the folders by hand)*
-Copies the Exercise C frames into an organized folder (calibration, focus series, exposure series, repeatability) without touching the originals, and writes a CSV of each file's exposure time, filter, temperature and binning.
 
 ---
 
@@ -96,10 +81,6 @@ The Fireworks Galaxy (NGC 6946) color image was made entirely in AstroImageJ: ca
 ---
 
 ## Exercise E: Plate Scale
-
-### Plate scale plot script
-Plots the separation on the CCD (px) against the catalog separation on the sky (″) for the nine double stars used, with the mean plate scale (1.239 ± 0.006 ″/px) as a line through the origin.
-- **Output:** `platescale.png`
 
 ### `double_stars_grid.py`
 Makes a 5 × 2 grid of cutouts of the 10 double stars. Each panel is centered on the brighter star, sized from the catalog separation, asinh-stretched and labeled with a 10″ scale bar.
