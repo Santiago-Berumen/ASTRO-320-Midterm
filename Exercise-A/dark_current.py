@@ -4,23 +4,23 @@ import numpy as np
 from astropy.io import fits
 import matplotlib.pyplot as plt
 
-# ================= SETTINGS =================
+
 dark_folder = '/Users/santiago/Documents/Astronomy/Astro 320/Exercise A/dark_frames/'
 mbias_path  = '/Users/santiago/Documents/Astronomy/Astro 320/Exercise A/Bias_Subtracted/masterbias.fits'
-edge = 50                # trim edges (the bright left strip in the master bias)
-g, g_err = 1.201, 0.003  # gain from Exercise B (e-/DN)
-k = 8.617e-5             # Boltzmann constant (eV/K)
-T_cold = -15             # below this, predicted dark signal in 300 s is < ~1.5 DN
+edge = 50               
+g, g_err = 1.201, 0.003  
+k = 8.617e-5          
+T_cold = -15    
 
 def num(f):
     m = re.search(r'(\d+)\.fits?$', f)
     return int(m.group(1)) if m else 0
 
-# ================= LOAD MASTER BIAS =================
+
 mbias = fits.getdata(mbias_path).astype(float)
 print(f"Master bias: {mbias.shape}, median = {np.median(mbias):.1f} DN\n")
 
-# ================= MEASURE EACH DARK =================
+
 files = sorted(glob.glob(dark_folder + '*.fit*'), key=num)
 print(f"{'file':<22}{'EXPTIME':>9}{'CCD-TEMP':>10}{'CALSTAT':>9}{'XBIN':>6}"
       f"{'raw med':>10}{'dark med':>10}{'dark mean':>11}")
@@ -54,8 +54,8 @@ med_all  = np.array([r[3] for r in rows])
 np.save('dark_measurements.npy', np.array([r[1:] for r in rows], dtype=float))
 print("\nSaved dark_measurements.npy (EXPTIME, CCD-TEMP, median, mean)")
 
-# ================= DARK CURRENT vs TIME (~7 C) =================
-ts = t_all <= 60    # images 3-9: the ~7 C time series
+
+ts = t_all <= 60
 
 (slope, intercept), cov = np.polyfit(t_all[ts], med_all[ts], 1, cov=True)
 slope_err = np.sqrt(cov[0, 0])
@@ -66,8 +66,8 @@ I_err = np.sqrt((slope_err * g) ** 2 + (slope * g_err) ** 2)
 print(f"\nslope = {slope:.4f} +/- {slope_err:.4f} DN/s, intercept = {intercept:.2f} DN")
 print(f"dark current at ~7 C = {I:.4f} +/- {I_err:.4f} e-/pixel/s")
 
-# ================= DARK CURRENT vs TEMPERATURE (300 s) =================
-tt = t_all == 300                # images 10-16
+
+tt = t_all == 300             
 T_C = temp_all[tt]
 T_K = T_C + 273.15
 med_T = med_all[tt]
@@ -83,9 +83,9 @@ N_off = np.r_[med_T[cold], intercept]
 o = np.argsort(T_off)
 offset = np.interp(T_C, T_off[o], N_off[o])
 
-signal = med_T - offset              # dark signal (DN); cold frames are 0 by construction
-I_T = g * signal / 300               # dark current (e-/pixel/s)
-use = (~cold) & (signal > 3)         # frames with a real, measurable dark signal
+signal = med_T - offset              
+I_T = g * signal / 300               
+use = (~cold) & (signal > 3)        
 
 print("\n   T (C)   offset (DN)   signal (DN)   I (e-/px/s)")
 for Tc, off, s, i, c in zip(T_C, offset, signal, I_T, cold):
@@ -101,8 +101,7 @@ A, A_err = -k * m, k * m_err
 print(f"\nslope = {m:.0f} +/- {m_err:.0f} K")
 print(f"activation energy A = {A:.2f} +/- {A_err:.2f} eV (stat)  (N = {use.sum()} points)")
 
-# Systematic check: redo it with the old offset model (straight line from the
-# 7 C intercept to the coldest frame) and see how much A moves.
+
 off_old = np.interp(T_C, [T_C.min(), 6.97], [med_T[np.argmin(T_C)], intercept])
 sig_old = med_T - off_old
 use_old = sig_old > 3
@@ -111,7 +110,7 @@ A_sys = abs(-k * m_old - A)
 print(f"old offset model gives A = {-k * m_old:.2f} eV -> systematic ~ {A_sys:.2f} eV")
 print(f"A = {A:.2f} +/- {A_err:.2f} (stat) +/- {A_sys:.2f} (sys) eV")
 
-# ================= PLOTS =================
+
 plt.rcParams.update({
     'font.family': 'serif', 'mathtext.fontset': 'cm', 'font.size': 10,
     'axes.linewidth': 0.8,
@@ -121,8 +120,8 @@ plt.rcParams.update({
     'legend.frameon': False,
 })
 
-# ---- Plot 1: dark charge vs exposure time (7 C) ----
-charge_t = g * (med_all[ts] - intercept)          # e-/pixel, offset removed
+
+charge_t = g * (med_all[ts] - intercept)         
 tt_fit = np.linspace(0, 65, 100)
 fig, ax = plt.subplots(figsize=(5, 3.8))
 ax.plot(tt_fit, g * slope * tt_fit, 'k', lw=1,
@@ -136,8 +135,8 @@ plt.tight_layout()
 plt.savefig('dark_vs_time.pdf'); plt.savefig('dark_vs_time.png', dpi=300)
 plt.show()
 
-# ---- Plot 2: dark charge vs temperature (300 s darks) ----
-charge_T = g * signal                              # e-/pixel in 300 s
+
+charge_T = g * signal                           
 TT = np.linspace(-36, 9, 200)
 fig, ax = plt.subplots(figsize=(5, 3.8))
 ax.plot(TT, 300 * np.exp(b + m / (TT + 273.15)), 'k', lw=1, label=rf'model, $A = {A:.2f}$ eV')
@@ -152,7 +151,7 @@ plt.tight_layout()
 plt.savefig('dark_vs_temp.pdf'); plt.savefig('dark_vs_temp.png', dpi=300)
 plt.show()
 
-# ---- Plot 3: linearized, ln(I) vs 1/T ----
+
 x = 1 / T_K[use]
 xx = np.linspace(x.min() * 0.995, x.max() * 1.005, 100)
 fig, ax = plt.subplots(figsize=(5, 3.8))
