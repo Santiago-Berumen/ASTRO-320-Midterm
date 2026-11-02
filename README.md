@@ -1,1 +1,0 @@
-# ASTRO-320-Midterm
