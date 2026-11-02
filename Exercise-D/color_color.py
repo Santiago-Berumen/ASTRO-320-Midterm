@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """
-Astro 320 - Exercise D, step 4: color-color diagram of NGC 6811
-================================================================
+Exercise D, color-color diagram of NGC 6811
+
 Reads the three AstroImageJ Multi-Aperture "Measurements" tables (one per filter, measured
 on the summed image, same stars clicked in the same order), builds a photometry table and
 plots V-R vs R-I.
 
-- If you entered reference-star magnitudes in AstroImageJ, the calibrated magnitudes
-  (Source_AMag_Tn) are used.
+- If you entered reference-star magnitudes in AstroImageJ, the calibrated magnitudes are used.
+
 - Otherwise instrumental magnitudes m = -2.5 log10(Source-Sky / t) are used. Colors don't
   need the absolute calibration (the zero-point offsets just shift the whole diagram).
-
-pip install numpy pandas matplotlib
 """
 import re
 from pathlib import Path
@@ -23,32 +21,29 @@ import matplotlib.pyplot as plt
 # ================= SETTINGS =================
 BASE = Path("/Users/santiago/Documents/Astronomy/Astro 320/Exercise D")
 
-TABLES = {                                   # AstroImageJ Measurements tables (.csv or .xls)
+TABLES = {                               
     "V": BASE / "MagVmap.csv",
     "R": BASE / "MagRmap.csv",
     "I": BASE / "MagImap.csv",
 }
-EXPTIME = {"V": 48.0, "R": 48.0, "I": 48.0}  # total exposure of each summed image [s] (e.g. 8 x 6 s)
-USE_CALIBRATED = False                       # False: instrumental mags from Source-Sky for every star.
-# (AstroImageJ's Source_AMag for comparison stars C2, C3, ... just repeats the reference magnitude you
-#  typed in, so it is NOT a measurement. Instrumental mags are measured for all stars; colors are fine.)
+EXPTIME = {"V": 48.0, "R": 48.0, "I": 48.0}
+USE_CALIBRATED = False                     
 
-# Optional: names for the star numbers (T1, T2, ...). Leave empty to label 1, 2, 3, ...
-NAMES = {                                    # matched from the reference mags typed into AstroImageJ
-    1: "KIC 9716045",   # target T1 (its measured I = 8.92 matches the expected 8.91)
+NAMES = {                                   
+    1: "KIC 9716045",   
     2: "KIC 9716522",
     3: "KIC 9654907",
     4: "V2502 Cyg",
-    5: "KIC 9655101?",  # reference I = 10.01 doesn't match the table: check which star this is
+    5: "KIC 9655101?", 
     6: "KIC 9655167",
     7: "V2503 Cyg",
     8: "KIC 9594437",
     9: "KIC 9716431",
     10: "KIC 9655187",
 }
-SKIP = []                                    # star numbers to leave out of the plot (e.g. variables)
+SKIP = []                                   
 
-# ================= READ =================
+
 def read_aij(path):
     """AstroImageJ saves tab-separated text even with a .xls extension; this handles both."""
     df = pd.read_csv(path, sep=None, engine="python")
@@ -74,8 +69,8 @@ def magnitudes(df, band):
     stars = star_numbers(df)
     calibrated = (USE_CALIBRATED is True) or (USE_CALIBRATED == "auto" and col(df, "Source_AMag", stars[0]) is not None)
     out = {}
-    if len(stars) == 1 and len(df) > 1:  # (not your files: they have T1 + C2..C10 in one row)
-        # one aperture column (T1) but one ROW per star: each row is a different star
+    if len(stars) == 1 and len(df) > 1:  
+       
         n0 = stars[0]
         for i, (_, row) in enumerate(df.iterrows(), start=1):
             if calibrated:
@@ -113,7 +108,7 @@ common = sorted(set(mags["V"]) & set(mags["R"]) & set(mags["I"]))
 if len({len(m) for m in mags.values()}) > 1:
     print(f"(!) the tables have different numbers of stars; using the {len(common)} present in all three")
 
-# ================= TABLE =================
+
 rows = []
 for n in common:
     (V, eV), (R, eR), (I, eI) = mags["V"][n], mags["R"][n], mags["I"][n]
@@ -124,7 +119,7 @@ tab = pd.DataFrame(rows)
 tab.to_csv(BASE / "ngc6811_photometry.csv", index=False, float_format="%.3f")
 print("\n" + tab.to_string(index=False, float_format=lambda x: f"{x:.3f}"))
 
-# LaTeX table for the report
+
 with open(BASE / "ngc6811_photometry.tex", "w") as f:
     f.write("\\begin{tabular}{clccccc}\n\\hline\n"
             "\\# & Star & $V$ & $R$ & $I$ & $V-R$ & $R-I$ \\\\\n\\hline\n")
@@ -135,7 +130,7 @@ with open(BASE / "ngc6811_photometry.tex", "w") as f:
     f.write("\\hline\n\\end{tabular}\n")
 print(f"\nSaved {BASE / 'ngc6811_photometry.csv'} and ngc6811_photometry.tex")
 
-# ================= PLOT =================
+
 plt.rcParams.update({
     'font.family': 'serif', 'mathtext.fontset': 'cm', 'font.size': 10,
     'axes.linewidth': 0.8,
@@ -166,11 +161,9 @@ plt.tight_layout()
 plt.savefig(BASE / "color_color.pdf"); plt.savefig(BASE / "color_color.png", dpi=300)
 plt.show()
 
-# ================= COLOR-MAGNITUDE DIAGRAM: V vs V-R =================
-# Put V on a real magnitude scale with one zero point: the median offset between the catalog V you
-# typed into AstroImageJ (Source_AMag of the comparison stars) and their instrumental V. The same
-# offset is applied to every star, so the relative brightnesses are still the measured ones.
-VAR_STARS = [4, 7]                           # variables: left out of the zero point
+# V vs V-R diagram
+
+VAR_STARS = [4, 7]                          
 dfV = read_aij(TABLES["V"])
 ref = []
 for n in common:
@@ -194,7 +187,7 @@ cb = fig.colorbar(sc, ax=ax, pad=0.02)
 cb.set_label(r"$V - R$ (instrumental):  hot $\rightarrow$ cool")
 for _, r in plot.iterrows():
     ax.annotate(str(int(r["star"])), (r["V_R"], r["V_cal"]), xytext=(4, 3), textcoords="offset points", fontsize=8)
-ax.invert_yaxis()                            # brighter stars at the top
+ax.invert_yaxis()                            
 ax.set_xlabel(r"$V - R$ (instrumental)")
 ax.set_ylabel(r"$V$ (mag)")
 ax.set_title("Color-Magnitude Diagram of NGC 6811")
