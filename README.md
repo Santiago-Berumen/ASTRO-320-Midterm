@@ -16,6 +16,15 @@ pip install numpy scipy astropy matplotlib pandas
 
 ## Exercise A: Read Noise and Dark Current
 
+### Full-frame read noise script (provided by the course)
+Measures the read noise over the whole chip from the 20 bias frames.
+- Compares each pixel only with itself across all 20 frames, so fixed patterns in the bias (the gradient, dark columns, bright edge) cancel out and only the random read noise is left.
+- **Result:** 9.637 DN (11.57 e⁻)
+
+### ROI read noise script (provided by the course)
+Does the same measurement in a 110 × 110 pixel defect-free region (ROI) centered at (x = 2300, y = 2030).
+- **Result:** 9.636 DN, which agrees with the full frame to 0.001 DN and shows the read noise is uniform across the detector.
+
 ### `dark_current.py`
 Measures the dark current from the dark frames and finds the activation energy.
 - Subtracts the master bias from every dark and takes the median as the dark level. It trims the edges to avoid the bright strip in the bias.
